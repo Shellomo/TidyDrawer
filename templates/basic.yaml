@@ -1,0 +1,17 @@
+version: 1
+rules:
+  - action: move_to_old_files_folder
+    priority: 1
+    conditions:
+      - attribute: file_group
+        operator: not in
+        values:
+          - common_document
+          - document
+      - attribute: last_accessed
+        operator: <
+        value: 1d
+actions:
+  move_to_old_files_folder:
+    type: move
+    destination: old_files

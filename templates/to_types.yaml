@@ -1,0 +1,63 @@
+version: 1
+rules:
+  - action: move_to_documents
+    priority: 1
+    conditions:
+      - attribute: file_group
+        operator: in
+        values:
+          - common_document
+          - document
+          - spreadsheet
+          - presentation
+  - action: move_to_media
+    priority: 1
+    conditions:
+      - attribute: file_group
+        operator: in
+        values:
+          - image
+          - audio
+          - video
+  - action: move_to_archive
+    priority: 1
+    conditions:
+      - attribute: file_group
+        operator: in
+        values:
+            - archive
+  - action: move_to_other
+    priority: 1
+    conditions:
+      - attribute: file_group
+        operator: in
+        values:
+            - programming
+            - web
+            - executable
+            - configuration
+  - action: move_to_unknown
+    priority: 1
+    conditions:
+      - attribute: file_group
+        operator: '='
+        values:
+            - unknown
+
+
+actions:
+  move_to_documents:
+    type: move
+    destination: Documents
+  move_to_media:
+    type: move
+    destination: Media
+  move_to_archive:
+    type: move
+    destination: Archive
+  move_to_other:
+    type: move
+    destination: Other
+  move_to_unknown:
+    type: move
+    destination: Unknown
