@@ -2,18 +2,20 @@ from typing import Dict, List, Any
 import os
 
 from tidydrawer.core.file_info import get_file_info, get_file_group
+from tidydrawer.core.snapshot_manager import SnapshotManager
 from tidydrawer.parsers.template_parser import TemplateParser
 from tidydrawer.parsers.rule_parser import match_rule
 from tidydrawer.actions.move_action import MoveAction
 from tidydrawer.utils.logger import logger
-RUN_ON_SAMPLE_FILES = 10000
 
 
 class TidyDrawerEngine:
-    def __init__(self):
+    def __init__(self, root_folder: str = '.'):
         self.template: Dict[str, Any] = {}
         self.rules: List[Dict[str, Any]] = []
         self.actions: Dict[str, Dict[str, Any]] = {}
+        self.snapshot_manager = SnapshotManager(root_folder)
+        self.initial_snapshot = None
 
     def load_template(self, template_path: str) -> None:
         """Load and parse the template file."""
@@ -27,6 +29,8 @@ class TidyDrawerEngine:
             self.template = parsed_template
             self.rules = parsed_template['rules']
             self.actions = parsed_template['actions']
+            self.initial_snapshot = self.snapshot_manager.create_snapshot()
+            self.snapshot_manager.save_snapshot(self.initial_snapshot)
 
             logger.info(f"Template loaded successfully from {template_path}")
         except Exception as e:
@@ -38,8 +42,6 @@ class TidyDrawerEngine:
         processed_files = []
         try:
             for i, filename in enumerate(os.listdir(folder_path)):
-                if i >= RUN_ON_SAMPLE_FILES:
-                    break
                 file_path = os.path.join(folder_path, filename)
                 if os.path.isfile(file_path):
                     result = self.process_file(file_path)
@@ -63,7 +65,6 @@ class TidyDrawerEngine:
                 "matched_rule": matched_rule['action'] if matched_rule else None,
                 "action_performed": None
             }
-            print(file_data)
 
             if matched_rule:
                 action_result = self.perform_action(file_data, matched_rule)
@@ -105,10 +106,29 @@ class TidyDrawerEngine:
             logger.warning(f"Unknown action type '{action_type}'")
             return f"Unknown action type: {action_type}"
 
+    def undo_all_actions(self) -> Dict[str, Any]:
+        if not self.initial_snapshot:
+            return {"error": "No initial snapshot available"}
+
+        current_changes = self.snapshot_manager.compare_with_current(self.initial_snapshot)
+
+        for src, dest in current_changes['moved']:
+            os.rename(os.path.join(self.snapshot_manager.root_folder, dest),
+                      os.path.join(self.snapshot_manager.root_folder, src))
+
+        for file in current_changes['added']:
+            os.remove(os.path.join(self.snapshot_manager.root_folder, file))
+
+        for file in current_changes['removed']:
+            # Here you might want to have a backup of removed files to restore them
+            logger.warning(f"Cannot restore removed file: {file}")
+
+        return current_changes
+
 
 # Example usage
 if __name__ == "__main__":
     engine = TidyDrawerEngine()
     engine.load_template("../templates/basic.yaml")
     results = engine.process_folder("../test_folder")
-    print(results)
+    # print(results)
